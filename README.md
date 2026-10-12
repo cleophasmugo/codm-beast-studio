@@ -201,7 +201,7 @@ also saved in `docs/openapi.json`). Main endpoints:
 ```bash
 cd backend && python -m pytest -q          # unit tests, real FFmpeg renders, full API flow
 cd frontend && npm test && npm run typecheck && npm run build
-python frontend/e2e/smoke.py               # browser end-to-end run against a live server
+python scripts/make_sample_media.py samples && python frontend/e2e/smoke.py   # browser e2e run against a live server
 ```
 
 The backend suite generates the synthetic sample media, renders several preset styles and export formats, checks the

@@ -22,8 +22,8 @@ import time
 from playwright.sync_api import Page, expect, sync_playwright
 
 BASE = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("BASE_URL", "http://localhost:8000")).rstrip("/")
-SAMPLES = sys.argv[2] if len(sys.argv) > 2 else "/tmp/claude-0/samples"
-SHOTS = sys.argv[3] if len(sys.argv) > 3 else "/tmp/claude-0/shots"
+SAMPLES = sys.argv[2] if len(sys.argv) > 2 else "samples"
+SHOTS = sys.argv[3] if len(sys.argv) > 3 else "e2e-shots"
 RENDER_TIMEOUT = 600_000
 
 
