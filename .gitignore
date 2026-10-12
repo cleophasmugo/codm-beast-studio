@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+# App data (uploads, renders, SQLite)
+data/
+backend/data/
+*.sqlite3
+*.sqlite3-*
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+# Generated sample media (recreate with scripts/make_sample_media.py)
+samples/
+# Env / OS
+.env
+.DS_Store
+Thumbs.db

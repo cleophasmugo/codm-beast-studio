@@ -1,0 +1,66 @@
+# CODM Beast Studio: web API + UI, Celery worker, PostgreSQL and Redis.
+#   docker compose up --build      then open http://localhost:8000
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: beast
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beast}
+      POSTGRES_DB: beast
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beast -d beast"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: codm-beast-studio:latest
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BEAST_DATABASE_URL: postgresql+psycopg://beast:${POSTGRES_PASSWORD:-beast}@db:5432/beast
+      BEAST_BROKER_URL: redis://redis:6379/0
+    ports:
+      - "${BEAST_PORT:-8000}:8000"
+    volumes:
+      - beastdata:/data
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:
+    image: codm-beast-studio:latest
+    command: ["celery", "-A", "app.jobs.celery_app", "worker", "--beat", "--loglevel=INFO",
+              "--concurrency=${BEAST_WORKER_CONCURRENCY:-1}", "--schedule=/data/celerybeat-schedule"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BEAST_DATABASE_URL: postgresql+psycopg://beast:${POSTGRES_PASSWORD:-beast}@db:5432/beast
+      BEAST_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - beastdata:/data
+    depends_on:
+      web: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  beastdata:
