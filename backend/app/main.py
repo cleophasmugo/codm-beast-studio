@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import __version__
-from .api import media, projects
+from .api import media, music, projects
 from .api.misc import exports, images, jobs, system
 from .core.config import get_settings
 from .db.session import run_migrations
@@ -50,7 +50,7 @@ def create_app() -> FastAPI:
         log.exception("Unhandled error on %s %s", request.method, request.url.path)
         return JSONResponse({"detail": "Internal server error. Check the server log for details."}, status_code=500)
 
-    for r in (media.router, projects.router, projects.quick_router, jobs, exports, images, system):
+    for r in (media.router, music.router, projects.router, projects.quick_router, jobs, exports, images, system):
         app.include_router(r)
 
     dist = s.frontend_dist.resolve()

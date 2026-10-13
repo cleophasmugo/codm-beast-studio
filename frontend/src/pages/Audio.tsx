@@ -2,6 +2,7 @@ import { Music, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { api, type GameAudio, type Media } from "../api";
 import { AudioRow } from "../components/AudioRow";
+import { OnlineMusicBrowser } from "../components/OnlineMusicBrowser";
 import { ProjectSelect, useSelectedProjectId } from "../components/ProjectSelect";
 import { SaveBar } from "../components/SaveBar";
 import { useToast } from "../components/Toast";
@@ -29,6 +30,11 @@ export function AudioPage() {
       toast.success(`${a.length} track${a.length === 1 ? "" : "s"} uploaded`);
     },
     [audio, toast],
+  );
+
+  const onImported = useCallback(
+    (m: Media) => audio.setData((prev) => [m, ...(prev ?? []).filter((x) => x.id !== m.id)]),
+    [audio],
   );
 
   const del = async () => {
@@ -69,7 +75,7 @@ export function AudioPage() {
             )}
           </Card>
           <Card>
-            <CardTitle icon={<Music className="size-4" />}>Your uploads</CardTitle>
+            <CardTitle icon={<Music className="size-4" />}>Your music</CardTitle>
             {uploads.length ? (
               <div className="space-y-3">
                 {uploads.map((m) => (
@@ -83,12 +89,13 @@ export function AudioPage() {
                 ))}
               </div>
             ) : (
-              <Empty title="No uploaded music">Upload a track below. Only use music you have the rights to.</Empty>
+              <Empty title="No music yet">Add a track from the online browser or upload one below. Only use music you have the rights to.</Empty>
             )}
             <div className="mt-4">
               <UploadZone compact accept=".mp3,.wav,.m4a,.aac,.ogg,.flac,audio/*" title="Upload music" hint="MP3, WAV, M4A, AAC, OGG or FLAC." onUploaded={onUploaded} />
             </div>
           </Card>
+          <OnlineMusicBrowser onImported={onImported} />
         </div>
 
         <div className="min-w-0">

@@ -34,7 +34,9 @@ export function AudioRow({
           />
         )}
         <span className="min-w-0 flex-1 truncate font-semibold text-white">{media.name}</span>
-        <Badge tone={media.source === "library" ? "violet" : "cyan"}>{media.source === "library" ? "Library" : "Upload"}</Badge>
+        <Badge tone={media.source === "library" ? "violet" : media.source === "online" ? "green" : "cyan"}>
+          {media.source === "library" ? "Library" : media.source === "online" ? "Online" : "Upload"}
+        </Badge>
         <Badge>{formatDuration(media.info.duration)}</Badge>
         <Badge>{formatBytes(media.size_bytes)}</Badge>
         {actions}

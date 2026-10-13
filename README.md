@@ -90,6 +90,10 @@ Optional extras:
   and **Add to Montage** (the screenshot becomes a moving scene timed to the beat).
 - **Music and Audio**: library tracks or your own, volume, game audio keep/reduce/mute,
   ducking, loudness normalisation, transition sound effects.
+- **Browse music online** (on the Music and Audio page): search free Jamendo tracks through
+  Openverse (no API key needed), preview them and add one to your music in a click. Only tracks
+  whose licence allows use in videos are shown (CC0, CC BY, CC BY-SA). The credit line is saved
+  as the track's licence; put it in your video description.
 - **Effects and Filters**: every effect can be switched off individually; manual colour
   overrides; a before/after frame rendered by the real FFmpeg filter chain.
 - **My Projects**: the optional editor. Highlights list with the reason each was picked, clip
@@ -171,6 +175,7 @@ All settings are environment variables with the `BEAST_` prefix (see `.env.examp
 | `BEAST_MAX_PARALLEL_JOBS` | 1 | Thread-mode concurrency (Celery: `BEAST_WORKER_CONCURRENCY`) |
 | `BEAST_X264_PRESET` | veryfast | Speed/size trade-off for H.264 exports |
 | `BEAST_DETECTOR_PLUGINS` | empty | `module:Class` list of trained event detectors |
+| `BEAST_ONLINE_MUSIC_API` | Openverse | Online music search API base URL; empty turns the feature off |
 
 ## API
 

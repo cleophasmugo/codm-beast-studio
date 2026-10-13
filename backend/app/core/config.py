@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     analysis_fps: float = 6.0
     detector_plugins: str = ""  # comma-separated "module:Class" entries, see services/detectors.py
 
+    # Online music search (Openverse API). Empty turns the feature off.
+    online_music_api: str = "https://api.openverse.org/v1"
+
     # Frontend build to serve at / (optional)
     frontend_dist: Path = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 

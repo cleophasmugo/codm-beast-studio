@@ -210,6 +210,32 @@ class MediaOut(BaseModel):
     contact_sheet_url: str | None
 
 
+class OnlineTrack(BaseModel):
+    id: str
+    title: str
+    creator: str
+    duration: float
+    license: str
+    license_url: str
+    attribution: str
+    genres: list[str]
+    preview_url: str
+    page_url: str
+    source: str
+    imported_media_id: str | None = None
+
+
+class OnlineMusicSearch(BaseModel):
+    results: list[OnlineTrack]
+    page: int
+    page_count: int
+    result_count: int
+
+
+class OnlineMusicImport(BaseModel):
+    track_id: str = Field(min_length=1, max_length=64)
+
+
 class MediaUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     folder: str | None = Field(None, max_length=100)

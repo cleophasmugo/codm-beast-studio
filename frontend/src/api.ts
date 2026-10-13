@@ -224,6 +224,29 @@ export interface Media {
   contact_sheet_url: string | null;
 }
 
+/** A free-licensed track found online (Jamendo via Openverse). */
+export interface OnlineTrack {
+  id: string;
+  title: string;
+  creator: string;
+  duration: number;
+  license: string;
+  license_url: string;
+  attribution: string;
+  genres: string[];
+  preview_url: string;
+  page_url: string;
+  source: string;
+  imported_media_id: string | null;
+}
+
+export interface OnlineMusicSearch {
+  results: OnlineTrack[];
+  page: number;
+  page_count: number;
+  result_count: number;
+}
+
 export interface ExportItem {
   id: string;
   project_id: string | null;
@@ -605,6 +628,10 @@ export const api = {
     request<Media>(`/api/media/${id}`, { method: "PATCH", ...json(body) }),
   deleteMedia: (id: string) => request<void>(`/api/media/${id}`, { method: "DELETE" }),
   frameUrl: (id: string, t: number) => `/api/media/${id}/frame?t=${Math.max(0, t).toFixed(2)}`,
+
+  // online music
+  searchMusic: (q: string, page = 1) => request<OnlineMusicSearch>(`/api/music/search${qs({ q, page })}`),
+  importMusic: (trackId: string) => request<Media>("/api/music/import", { method: "POST", ...json({ track_id: trackId }) }),
 
   // projects
   listProjects: () => request<Project[]>("/api/projects"),
