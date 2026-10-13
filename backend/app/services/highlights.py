@@ -57,31 +57,39 @@ class Candidate:
 
 
 def _bin(times: np.ndarray, values: np.ndarray, n: int, how: str = "mean") -> np.ndarray:
-    out = np.zeros(n)
     if len(values) == 0:
-        return out
+        return np.zeros(n)
     idx = np.clip((times / GRID).astype(int), 0, n - 1)
     if how == "max":
+        # start from -inf, not 0: values can be negative (loudness in dB is always below 0)
+        out = np.full(n, -np.inf)
         np.maximum.at(out, idx, values)
-        return out
-    sums = np.zeros(n)
-    cnt = np.zeros(n)
-    np.add.at(sums, idx, values)
-    np.add.at(cnt, idx, 1)
-    filled = cnt > 0
-    out[filled] = sums[filled] / cnt[filled]
+        filled = np.isfinite(out)
+    else:
+        out = np.zeros(n)
+        sums = np.zeros(n)
+        cnt = np.zeros(n)
+        np.add.at(sums, idx, values)
+        np.add.at(cnt, idx, 1)
+        filled = cnt > 0
+        out[filled] = sums[filled] / cnt[filled]
     if (~filled).any() and filled.any():  # interpolate empty bins
         out[~filled] = np.interp(np.where(~filled)[0], np.where(filled)[0], out[filled])
     return out
 
 
-def robust_z(x: np.ndarray) -> np.ndarray:
+def robust_z(x: np.ndarray, min_scale: float = 0.0) -> np.ndarray:
     if len(x) == 0:
         return x
     med = np.median(x)
     mad = np.median(np.abs(x - med)) * 1.4826
     scale = mad if mad > 1e-9 else (np.std(x) if np.std(x) > 1e-9 else 1.0)
-    return (x - med) / scale
+    return (x - med) / max(scale, min_scale)
+
+
+# Smallest spread treated as meaningful per signal. Without it a signal that is nearly constant
+# (steady footage has almost no frame-to-frame brightening) turns every tiny wobble into a "spike".
+MIN_SCALE = {"flash": 0.01, "audio": 1.5}  # brightness units (0..1) and dB
 
 
 class HighlightAnalyzer:
@@ -136,7 +144,7 @@ class HighlightAnalyzer:
     def excitement(self, sig: dict[str, np.ndarray]) -> tuple[np.ndarray, dict[str, np.ndarray]]:
         parts: dict[str, np.ndarray] = {}
         for key in ("motion", "flow", "audio", "transients", "scene", "flash"):
-            z = robust_z(sig[key])
+            z = robust_z(sig[key], MIN_SCALE.get(key, 0.0))
             parts[key] = np.clip(z, 0, 4) / 4.0
         w = self.w
         weights = {"motion": w.motion, "flow": w.motion * 0.6, "audio": w.audio, "transients": w.transients,

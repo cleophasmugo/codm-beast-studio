@@ -224,3 +224,19 @@ def test_inspector_handles_path_names(tmp_path: Path, samples):
     # The display name decides the extension check, never the stored path.
     ins = MediaInspector().inspect(samples / "sample_screenshot.jpg", "../../shot.jpg")
     assert ins.kind == "image"
+
+
+def test_loudness_signal_counts_negative_db():
+    # Loudness is in dB (always below 0); max-binning must not clamp it to 0.
+    from app.services.highlights import _bin
+    out = _bin(np.array([0.0, 0.1, 0.6]), np.array([-30.0, -12.0, -40.0]), 3, "max")
+    assert out[0] == -12.0 and out[2] == -40.0 and np.isfinite(out).all()
+
+
+def test_flash_ignores_tiny_brightness_wobble():
+    from app.services.highlights import MIN_SCALE, robust_z
+    wobble = np.abs(np.random.default_rng(0).normal(0, 0.0005, 400))
+    assert (np.clip(robust_z(wobble, MIN_SCALE["flash"]), 0, 4) / 4 < 0.5).all()
+    spike = wobble.copy()
+    spike[200] = 0.15  # a real muzzle flash or explosion
+    assert np.clip(robust_z(spike, MIN_SCALE["flash"]), 0, 4)[200] == 4
