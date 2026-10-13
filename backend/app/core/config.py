@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     # Analysis
     analysis_fps: float = 6.0
     detector_plugins: str = ""  # comma-separated "module:Class" entries, see services/detectors.py
+    codm_kill_detector: bool = True  # built-in detector for CODM's yellow kill notices
 
     # Online music search (Openverse API). Empty turns the feature off.
     online_music_api: str = "https://api.openverse.org/v1"

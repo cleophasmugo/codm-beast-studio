@@ -87,7 +87,7 @@ def test_one_click_montage(client, uploaded):
     hl = client.get(f"/api/projects/{job['project_id']}/highlights").json()
     cands = next(iter(hl["media"].values()))["candidates"]
     assert cands and all(c["evidence"] == "heuristic" for c in cands)
-    assert "does not claim" in hl["evidence_note"]
+    assert "kill" in hl["evidence_note"].lower() and "heuristic" in hl["evidence_note"]
     assert proj["revision_count"] >= 1
 
 

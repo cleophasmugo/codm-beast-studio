@@ -13,7 +13,7 @@ from .auto_color import ColorCorrection
 # Look = (colorbalance args, contrast multiplier, saturation multiplier, extra filters)
 LOOKS: dict[str, tuple[dict[str, float], float, float, list[str]]] = {
     "none": ({}, 1.0, 1.0, []),
-    "beast": ({"rs": -0.05, "bs": 0.08, "rh": 0.07, "bh": -0.06}, 1.08, 1.12, []),
+    "beast": ({"rs": -0.05, "gs": 0.02, "bs": 0.05, "rh": 0.06, "gh": 0.02, "bh": -0.06}, 1.08, 1.12, []),
     "cinematic": ({"rs": -0.07, "gs": -0.01, "bs": 0.09, "rh": 0.09, "gh": 0.02, "bh": -0.07}, 1.05, 0.9, []),
     "esports": ({"bm": 0.02, "rh": 0.02}, 1.06, 1.15, []),
     "clean": ({}, 1.02, 1.04, []),
@@ -54,8 +54,9 @@ class EffectsComposer:
         contrast = (man.contrast if man.contrast is not None else corr.contrast) * (1 + (look_c - 1) * k)
         saturation = (man.saturation if man.saturation is not None else corr.saturation) * (1 + (look_s - 1) * k)
         gamma = man.gamma if man.gamma is not None else corr.gamma
-        contrast = min(max(contrast, 0.5), 1.6)
-        saturation = min(max(saturation, 0.0), 1.8)
+        # Auto-enhance and the look multiply; cap the result so already-vivid game footage doesn't go garish.
+        contrast = min(max(contrast, 0.5), 1.4)
+        saturation = min(max(saturation, 0.0), 1.3 if man.saturation is None else 1.8)
         chain: list[str] = []
         if e.denoise and corr.denoise:
             chain.append("hqdn3d=1.5:1.5:6:6")

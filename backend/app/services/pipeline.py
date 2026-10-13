@@ -35,7 +35,7 @@ from .timeline import ClipSelector, MediaMeta, TimelineBuilder
 from .video_analysis import FrameSamples, SceneDetector, sample_frames
 
 log = logging.getLogger(__name__)
-ANALYSIS_VERSION = 2
+ANALYSIS_VERSION = 3  # 3: built-in CODM kill notice detector
 
 
 class PipelineError(RuntimeError):
@@ -201,8 +201,9 @@ def build_auto_timeline(db: Session, p: Project, ctx: JobContext | None = None) 
     tl = TimelineBuilder(settings).build(selected, metas, [m.id for m in images], music)
     highlights["selected"] = [c.as_dict() for c in selected]
     highlights["evidence_note"] = (
-        "Highlights are chosen from motion, sound spikes, flashes and scene changes. They are heuristic: the app "
-        "does not claim to recognise kills or other game events unless a trained detector plugin is configured.")
+        "Kills are found from CODM's yellow KNOCKED DOWN / ELIMINATED notice and always rank first; each kill clip "
+        "runs from the fight to just after the notice. Other moments come from motion, sound spikes, flashes and "
+        "scene changes and are heuristic guesses.")
     p.highlights = highlights
     save_timeline(db, p, tl, f"Auto edit ({PRESETS[settings.preset]['label']})")
     db.flush()

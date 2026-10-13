@@ -240,3 +240,31 @@ def test_flash_ignores_tiny_brightness_wobble():
     spike = wobble.copy()
     spike[200] = 0.15  # a real muzzle flash or explosion
     assert np.clip(robust_z(spike, MIN_SCALE["flash"]), 0, 4)[200] == 4
+
+
+def test_codm_kill_notice_detector_finds_each_notice_once():
+    from app.services.detectors import CodmKillNoticeDetector
+    det = CodmKillNoticeDetector()
+    # 5 samples/s: notice pops at 2.0 s and lingers; a second kill re-pops at 3.6 s after a 0.8 s gap;
+    # a lone yellow blob (few strokes) at 6.0 s is not text.
+    series = [(i / 5, 0.0, 0) for i in range(40)]
+    for t, pct, strokes in [(2.0, 3.5, 20), (2.2, 1.2, 24), (2.4, 1.0, 22), (2.6, 0.7, 12),
+                            (3.6, 2.9, 15), (3.8, 1.4, 30), (6.0, 4.0, 2)]:
+        series[round(t * 5)] = (t, pct, strokes)
+    assert [e.time for e in det.detect_series(series)] == [2.0, 3.6]
+
+    import cv2
+    frame = np.full((544, 864, 3), 90, np.uint8)
+    cv2.putText(frame, "KNOCKED DOWN", (600, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (40, 220, 235), 2)  # BGR yellow
+    pct, strokes = det.measure(frame)
+    assert pct >= det.ON_PCT and strokes >= det.MIN_STROKES
+    assert det.measure(np.full((544, 864, 3), 90, np.uint8)) == (0.0, 0)
+
+
+def test_kill_clips_cover_fight_and_payoff():
+    from app.services.detectors import DetectedEvent
+    from app.services.highlights import KILL_LEAD, KILL_TAIL, HighlightAnalyzer
+    evs = [DetectedEvent(t, "kill", 0.85, "test") for t in (8.6, 43.6, 46.8, 48.8)]
+    wins = HighlightAnalyzer._kill_windows(evs, 74.0)
+    assert [(s, e) for s, e, _ in wins] == [(round(8.6 - KILL_LEAD, 3), round(8.6 + KILL_TAIL, 3)),
+                                            (round(43.6 - KILL_LEAD, 3), round(48.8 + KILL_TAIL, 3))]

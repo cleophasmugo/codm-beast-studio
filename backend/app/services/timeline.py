@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import itertools
+import math
 import uuid
 from dataclasses import dataclass
 
 from ..presets import PRESETS
 from ..schemas import Clip, MusicTrack, Overlay, ProjectSettings, SpeedRamp, Timeline
-from .highlights import Candidate
+from .highlights import KILL_LEAD, KILL_TAIL, Candidate
 
 MIN_CLIP = 1.0  # seconds of output; shorter cuts are unreadable
 
 
 def _id() -> str:
     return uuid.uuid4().hex[:10]
+
+
+def _kill_times(c: Candidate) -> list[float]:
+    return sorted(float(ev["time"]) for ev in c.events if ev.get("label") == "kill")
 
 
 class ClipSelector:
@@ -130,6 +135,10 @@ class TimelineBuilder:
             if kind == "video":
                 c = item  # type: ignore[assignment]
                 n = max(min_beats, s.beats_per_clip * (2 if id(c) in top_ids and s.effects.speed_ramps else 1))
+                kills = _kill_times(c)
+                if kills:  # enough beats to show the whole fight and every kill (slow-mo eats ~20% of source)
+                    need = min(kills[-1] - kills[0] + KILL_LEAD + KILL_TAIL, c.end - c.start) / 0.8
+                    n = max(n, math.ceil(need / beat_len))
             elif kind == "image":
                 n = max(min_beats, round(s.image_duration / beat_len))
             else:
@@ -184,10 +193,15 @@ class TimelineBuilder:
                     src_len = meta.duration
                     ramp = None
                     notes.append("A clip was shorter than its beat slot; it plays in full.")
-                # Centre the window on the peak, but stay inside the candidate's context where possible.
-                start = c.peak - src_len * 0.55
-                start = min(start, max(c.start, c.end - src_len)) if src_len <= c.end - c.start else start
-                start = max(start, min(c.start, c.peak - src_len * 0.3))
+                kills = _kill_times(c)
+                if kills:
+                    # End just after the last kill notice, so the clip lands on the payoff, never before it.
+                    start = kills[-1] + KILL_TAIL - src_len
+                else:
+                    # Centre the window on the peak, but stay inside the candidate's context where possible.
+                    start = c.peak - src_len * 0.55
+                    start = min(start, max(c.start, c.end - src_len)) if src_len <= c.end - c.start else start
+                    start = max(start, min(c.start, c.peak - src_len * 0.3))
                 start = min(max(0.0, start), max(0.0, meta.duration - src_len))
                 if ramp:
                     ramp.at = round(min(max(0.0, c.peak - start - ramp.duration / 2), src_len - ramp.duration), 3)

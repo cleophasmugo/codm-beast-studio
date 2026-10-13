@@ -222,9 +222,11 @@ class FFmpegRenderer:
             g.append(f"[{cur}]" + ",".join(grade) + "[vg]")
             cur = "vg"
         if self.fx.glow():
-            g.append(f"[{cur}]split=2[gl0][gl1]")
-            g.append("[gl1]gblur=sigma=14,eq=brightness=0.02[glb]")
-            g.append("[gl0][glb]blend=all_mode=screen:all_opacity=0.22[vglow]")
+            # Blend in RGB: screen-blending YUV chroma planes shifts every pixel toward magenta.
+            # Only the brightest parts (muzzle flashes, fire, explosions) glow; darks stay dark.
+            g.append(f"[{cur}]format=gbrp,split=2[gl0][gl1]")
+            g.append("[gl1]curves=all='0/0 0.72/0 1/1',gblur=sigma=12[glb]")
+            g.append("[gl0][glb]blend=all_mode=screen:all_opacity=0.5,format=yuv420p[vglow]")
             cur = "vglow"
         peak_out = None
         if c.ramp:

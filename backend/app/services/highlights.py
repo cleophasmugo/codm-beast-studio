@@ -21,6 +21,14 @@ from .video_analysis import FrameSamples
 
 GRID = 0.25  # seconds per analysis bin
 
+# Kill clips: show the fight leading up to the kill and the kill notice after it.
+KILL_LEAD = 2.2  # seconds before the (first) kill
+KILL_TAIL = 1.2  # seconds after the (last) kill notice appears
+MULTI_KILL_GAP = 4.0  # kills this close together become one multi-kill clip
+MAX_KILL_CLIP = 10.0
+KILL_BONUS, MULTI_KILL_BONUS = 0.5, 0.2
+MULTI_KILL = {1: "kill", 2: "double kill", 3: "triple kill", 4: "quad kill"}
+
 REASONS = {
     "motion": "big on-screen motion",
     "flow": "fast camera movement",
@@ -200,6 +208,11 @@ class HighlightAnalyzer:
                     ia, ib = int(sa / GRID), max(int(sa / GRID) + 1, int(sb / GRID))
                     pk = ia + int(np.argmax(e[ia:ib]))
                     windows.append((round(sa, 3), round(min(sb, duration), 3), pk))
+        kill_windows = self._kill_windows(events, duration)
+        if kill_windows:  # a detected kill beats a motion guess for the same stretch of footage
+            windows = [w for w in windows
+                       if not any(min(w[1], k[1]) - max(w[0], k[0]) > 0.3 * (w[1] - w[0]) for k in kill_windows)]
+            windows += kill_windows
         cands: list[Candidate] = []
         for start, end, p in windows:
             peak_t = (p + 0.5) * GRID
@@ -210,8 +223,13 @@ class HighlightAnalyzer:
             sigs = {k: float(parts[k][max(0, p - 2):p + 3].max()) for k in parts}
             reasons = [REASONS[k] for k, v in sorted(sigs.items(), key=lambda kv: -kv[1]) if v >= 0.35][:3]
             evs = [ev for ev in events if start <= ev.time <= end]
-            if evs:
-                reasons = [f"{ev.label} ({ev.source}, {ev.confidence:.0%})" for ev in evs] + reasons
+            kills = [ev for ev in evs if ev.label == "kill"]
+            if kills:
+                what = MULTI_KILL.get(len(kills), f"{len(kills)} kills")
+                reasons = [f"{what} ({kills[0].source}, {kills[0].confidence:.0%})"] + reasons
+            others = [ev for ev in evs if ev.label != "kill"]
+            if others:
+                reasons = [f"{ev.label} ({ev.source}, {ev.confidence:.0%})" for ev in others] + reasons
             if not reasons:
                 reasons = ["above-average action"]
             cands.append(Candidate(
@@ -228,8 +246,29 @@ class HighlightAnalyzer:
             for c in cands:
                 c.score = (c.excitement / emax) * (1.0 - 0.25 * min(self.w.clarity, 1.0)) \
                     + c.clarity * 0.25 * min(self.w.clarity, 1.0)
+                n_kills = sum(1 for ev in c.events if ev["label"] == "kill")
+                if n_kills:  # confirmed kills rank above any motion-only moment; multi-kills above single kills
+                    c.score += KILL_BONUS + MULTI_KILL_BONUS * (n_kills - 1)
         cands.sort(key=lambda c: -c.score)
         return cands, self._summary(e, sig, au, cuts)
+
+    @staticmethod
+    def _kill_windows(events: list[DetectedEvent], duration: float) -> list[tuple[float, float, int]]:
+        """One window per kill or run of quick kills: the fight before it through the kill notice after it.
+
+        Scene cuts are ignored here: in gameplay they are fast camera turns, and cutting there is
+        exactly what chops a fight off before its kill.
+        """
+        kills = sorted(ev.time for ev in events if ev.label == "kill")
+        groups: list[list[float]] = []
+        for t in kills:
+            if groups and t - groups[-1][-1] <= MULTI_KILL_GAP and \
+                    t - groups[-1][0] + KILL_LEAD + KILL_TAIL <= MAX_KILL_CLIP:
+                groups[-1].append(t)
+            else:
+                groups.append([t])
+        return [(round(max(0.0, g[0] - KILL_LEAD), 3), round(min(duration, g[-1] + KILL_TAIL), 3),
+                 int(g[-1] / GRID)) for g in groups]
 
     def _context_window(self, peak: float, e: np.ndarray, cuts: list[float], duration: float) -> tuple[float, float]:
         start = peak - self.pre_roll
