@@ -146,10 +146,16 @@ standard or high quality.
 
 ### Honest limits
 
-- **No kill or headshot recognition out of the box.** Highlights come from motion, loudness,
-  sound spikes, flashes and scene changes, and the app always labels them as heuristic. A
-  trained model can be plugged in: see `docs/examples/kill_feed_detector.py` and
-  `BEAST_DETECTOR_PLUGINS`. Its events are labelled with the model name and confidence.
+- **Kills are found from CODM's on-screen notice.** The built-in detector spots the yellow
+  "KNOCKED DOWN" / "ELIMINATED" / "HEADSHOT" text right of the crosshair, so each of *your*
+  kills becomes a clip from the fight to just after the notice (kills within 4 s become one
+  multi-kill clip). It reads colour and position, not words: it can't tell a knock from a
+  headshot, and it can miss kills if the HUD is hidden, moved, or recolored, or the footage is
+  very low resolution. Everything else comes from motion, loudness, sound spikes, flashes and
+  scene changes, labelled as heuristic. A trained model can be plugged in: see
+  `docs/examples/kill_feed_detector.py` and `BEAST_DETECTOR_PLUGINS`.
+- **No stabilisation.** Screen recordings have no camera shake to remove; the optional
+  "shake" effect is added on purpose and can be switched off.
 - With little action in the footage, the montage is shorter than the target rather than
   padded with quiet footage.
 - Overlay keyframes animate position only. Opacity, scale and rotation are set per overlay, plus
@@ -175,6 +181,7 @@ All settings are environment variables with the `BEAST_` prefix (see `.env.examp
 | `BEAST_MAX_PARALLEL_JOBS` | 1 | Thread-mode concurrency (Celery: `BEAST_WORKER_CONCURRENCY`) |
 | `BEAST_X264_PRESET` | veryfast | Speed/size trade-off for H.264 exports |
 | `BEAST_DETECTOR_PLUGINS` | empty | `module:Class` list of trained event detectors |
+| `BEAST_CODM_KILL_DETECTOR` | true | Built-in detector for CODM's yellow kill notices |
 | `BEAST_ONLINE_MUSIC_API` | Openverse | Online music search API base URL; empty turns the feature off |
 
 ## API
