@@ -83,10 +83,11 @@ class EffectsComposer:
         W, H = fr.w, fr.h
         chain: list[str] = []
         zoom = 0.0
+        # Effects stay short and light: big zooms, colour fringing and white-outs read as glitches, not style.
         if clip.transition == "zoom":
-            zoom = 0.22
+            zoom = 0.14
         elif clip.punch_in and e.punch_in:
-            zoom = 0.12
+            zoom = 0.07
         if zoom:
             chain.append(f"scale=w='trunc(iw*(1+{f(zoom)}*pow(max(0,1-t/0.35),2))/2)*2':h=-2:eval=frame")
             chain.append(f"crop={W}:{H}")
@@ -97,12 +98,12 @@ class EffectsComposer:
                          f":y='{a}+{a}*cos(t*39)*exp(-4*abs(t-{f(p)}))'")
             chain.append(f"scale={W}:{H}")
         if clip.transition == "glitch":
-            shift = max(2, W // 160)
-            chain.append(f"rgbashift=rh=-{shift * 2}:bh={shift * 2}:enable='lt(t,0.22)'")
-            chain.append("noise=alls=25:allf=t:enable='lt(t,0.18)'")
+            shift = max(2, W // 320)
+            chain.append(f"rgbashift=rh=-{shift}:bh={shift}:enable='lt(t,0.12)'")
+            chain.append("noise=alls=6:allf=t:enable='lt(t,0.1)'")
         elif e.chromatic and clip.transition in ("flash", "zoom"):
-            shift = max(1, W // 320)
-            chain.append(f"rgbashift=rh=-{shift}:bh={shift}:enable='lt(t,0.18)'")
+            shift = max(1, W // 640)
+            chain.append(f"rgbashift=rh=-{shift}:bh={shift}:enable='lt(t,0.1)'")
         if clip.transition == "whip":
             chain.append("gblur=sigma=40:sigmaV=0.5:steps=2:enable='lt(t,0.14)'")
         if e.motion_blur and clip.kind == "video":
@@ -114,7 +115,8 @@ class EffectsComposer:
             chain.append(f"drawbox=x=0:y=0:w=iw:h={bar}:color=black:t=fill")
             chain.append(f"drawbox=x=0:y=ih-{bar}:w=iw:h={bar}:color=black:t=fill")
         if clip.transition == "flash" or (e.flash and clip.transition == "zoom"):
-            chain.append("fade=t=in:st=0:d=0.18:color=white")
+            # A quick brightness pop, not a full white frame.
+            chain.append("eq=brightness='0.3*max(0,1-t/0.18)':eval=frame")
         elif clip.transition == "fade" or (is_first and clip.transition not in ("cut",)):
             chain.append("fade=t=in:st=0:d=0.35")
         if is_last:

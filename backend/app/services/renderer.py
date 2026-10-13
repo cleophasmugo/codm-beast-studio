@@ -27,6 +27,7 @@ from .image_studio import apply_edit
 from .sound_library import build_sfx_bed
 
 log = logging.getLogger(__name__)
+LOW_RES_HEIGHT = 720  # sources below this get deblocking before upscaling and extra sharpening after
 
 StageProgress = Callable[[float, str], None]
 
@@ -138,18 +139,21 @@ class FFmpegRenderer:
     def _reframe(self, src_w: int, src_h: int, crop_x: float | None, label_in: str, label_out: str,
                  g: list[str]) -> None:
         W, H = self.frame.w, self.frame.h
+        if src_h < LOW_RES_HEIGHT:  # small and usually re-compressed (e.g. sent via WhatsApp): smooth block edges
+            g.append(f"[{label_in}]deblock=filter=weak:block=8[{label_in}db]")
+            label_in = f"{label_in}db"
         ta = W / H
         sa = src_w / max(src_h, 1)
         mode = self.s.reframe
         if abs(sa - ta) / ta < 0.02:
-            g.append(f"[{label_in}]scale={W}:{H}:flags=bicubic[{label_out}]")
+            g.append(f"[{label_in}]scale={W}:{H}:flags=lanczos[{label_out}]")
             return
         if mode == "blur_fill" or (sa < ta and ta / sa > 1.3):
             # Fit the whole frame and fill the empty space with a blurred, darkened copy.
             g.append(f"[{label_in}]split=2[bf_bg][bf_fg]")
             g.append(f"[bf_bg]scale={W // 4}:{H // 4}:force_original_aspect_ratio=increase,crop={W // 4}:{H // 4},"
                      f"gblur=sigma=8,eq=brightness=-0.08:saturation=1.1,scale={W}:{H}[bf_bgb]")
-            g.append(f"[bf_fg]scale={W}:{H}:force_original_aspect_ratio=decrease:flags=bicubic[bf_fgs]")
+            g.append(f"[bf_fg]scale={W}:{H}:force_original_aspect_ratio=decrease:flags=lanczos[bf_fgs]")
             g.append(f"[bf_bgb][bf_fgs]overlay=(W-w)/2:(H-h)/2[{label_out}]")
             return
         if sa > ta:  # source wider: crop width, following the action horizontally
@@ -158,11 +162,11 @@ class FFmpegRenderer:
             # Pull toward the centre a little so HUD-edge noise doesn't yank the crop.
             cx = 0.5 + (cx - 0.5) * 0.7
             x = int(min(max(cx * src_w - cw / 2, 0), src_w - cw))
-            g.append(f"[{label_in}]crop={cw}:{src_h}:{x}:0,scale={W}:{H}:flags=bicubic[{label_out}]")
+            g.append(f"[{label_in}]crop={cw}:{src_h}:{x}:0,scale={W}:{H}:flags=lanczos[{label_out}]")
         else:  # source taller: crop height around the centre
             ch = int(src_w / ta) // 2 * 2
             y = max(0, (src_h - ch) // 2)
-            g.append(f"[{label_in}]crop={src_w}:{ch}:0:{y},scale={W}:{H}:flags=bicubic[{label_out}]")
+            g.append(f"[{label_in}]crop={src_w}:{ch}:0:{y},scale={W}:{H}:flags=lanczos[{label_out}]")
 
     def _video_clip_args(self, c: Clip, n_frames: int, is_first: bool, is_last: bool) -> list[str]:
         m = self.media[c.media_id]  # type: ignore[index]
@@ -217,6 +221,8 @@ class FFmpegRenderer:
         self._reframe(int(m.info.get("width", self.frame.w)), int(m.info.get("height", self.frame.h)),
                       c.crop_x, "vr", "vf", g)
         grade = self.fx.grade(m.color)
+        if self.s.effects.sharpen and int(m.info.get("height", self.frame.h)) < LOW_RES_HEIGHT < self.frame.h:
+            grade.append("unsharp=5:5:0.35:5:5:0")  # restore edges softened by upscaling
         cur = "vf"
         if grade:
             g.append(f"[{cur}]" + ",".join(grade) + "[vg]")
