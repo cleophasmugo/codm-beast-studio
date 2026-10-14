@@ -24,6 +24,7 @@ const EFFECTS: { key: keyof EffectToggles; label: string; description: string }[
   { key: "light_leaks", label: "Light leaks", description: "Warm film-style light sweeps" },
   { key: "chromatic", label: "RGB split", description: "Chromatic aberration glitch hits" },
   { key: "letterbox", label: "Letterbox", description: "Cinematic black bars" },
+  { key: "impact", label: "Kill impact", description: "White pop and hard shake on every detected kill" },
 ];
 
 type ColorKey = "brightness" | "contrast" | "saturation" | "gamma" | "sharpen_amount";

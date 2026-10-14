@@ -14,7 +14,7 @@ export type Reframe = "smart_crop" | "blur_fill" | "center_crop";
 export type GameAudio = "keep" | "reduce" | "mute";
 export type TextAnimation = "none" | "fade" | "pop" | "slide_left" | "slide_up" | "bounce";
 export type PresetName =
-  | "beast" | "cinematic" | "esports" | "smooth" | "neon" | "tiktok" | "youtube" | "shorts" | "showcase";
+  | "beast" | "cinematic" | "esports" | "smooth" | "neon" | "tiktok" | "youtube" | "shorts" | "showcase" | "streamer";
 export type Look = "none" | "beast" | "cinematic" | "esports" | "clean" | "neon" | "warm" | "cold" | "vintage" | "bw";
 export type Motion = "none" | "zoom_in" | "zoom_out" | "pan_left" | "pan_right";
 export type MediaKind = "video" | "audio" | "image" | "sticker";
@@ -44,6 +44,7 @@ export interface EffectToggles {
   light_leaks: boolean;
   chromatic: boolean;
   letterbox: boolean;
+  impact: boolean;
 }
 
 export interface ColorAdjust {
@@ -99,6 +100,9 @@ export interface ProjectSettings {
   watermark_position: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   watermark_opacity: number;
   clip_counter: boolean;
+  kill_callouts: boolean;
+  reaction_clip_id: string | null;
+  reaction_seconds: number;
 }
 
 // --------------------------------------------------------------------------- timeline
@@ -152,6 +156,8 @@ export interface Clip {
   score: number;
   reasons: string[];
   muted: boolean;
+  hits?: number[];
+  reaction?: boolean;
 }
 
 export interface MusicTrack {

@@ -22,7 +22,7 @@ def uploaded(client, samples):
 def test_health_and_system(client):
     assert client.get("/api/health").json() == {"status": "ok"}
     s = client.get("/api/system").json()
-    assert s["formats"]["mp4_h264"] and len(s["presets"]) == 9 and s["job_backend"] == "thread"
+    assert s["formats"]["mp4_h264"] and len(s["presets"]) == 10 and s["job_backend"] == "thread"
 
 
 def test_library_is_seeded(client):

@@ -181,7 +181,7 @@ class FFmpegRenderer:
             args += ["-loop", "1", "-framerate", str(fps), "-t", f"{out_dur:.3f}", "-i", str(leak)]
             leak_idx = idx
             idx += 1
-        gv = 0.0 if c.muted else self._game_volume()
+        gv = 0.0 if c.muted else (1.0 if c.reaction else self._game_volume())
         has_audio = bool(m.info.get("has_audio")) and gv > 0
         null_idx = None
         if not has_audio:
@@ -220,14 +220,14 @@ class FFmpegRenderer:
 
         self._reframe(int(m.info.get("width", self.frame.w)), int(m.info.get("height", self.frame.h)),
                       c.crop_x, "vr", "vf", g)
-        grade = self.fx.grade(m.color)
-        if self.s.effects.sharpen and int(m.info.get("height", self.frame.h)) < LOW_RES_HEIGHT < self.frame.h:
+        grade = [] if c.reaction else self.fx.grade(m.color)
+        if grade and self.s.effects.sharpen and int(m.info.get("height", self.frame.h)) < LOW_RES_HEIGHT < self.frame.h:
             grade.append("unsharp=5:5:0.35:5:5:0")  # restore edges softened by upscaling
         cur = "vf"
         if grade:
             g.append(f"[{cur}]" + ",".join(grade) + "[vg]")
             cur = "vg"
-        if self.fx.glow():
+        if self.fx.glow() and not c.reaction:
             # Blend in RGB: screen-blending YUV chroma planes shifts every pixel toward magenta.
             # Only the brightest parts (muzzle flashes, fire, explosions) glow; darks stay dark.
             g.append(f"[{cur}]format=gbrp,split=2[gl0][gl1]")
@@ -239,7 +239,8 @@ class FFmpegRenderer:
             peak_out = c.ramp.at + (c.ramp.duration / c.ramp.speed) / 2
         elif c.shake:
             peak_out = src_len * 0.55
-        finish = self.fx.finish(c, out_dur, self.frame, is_first, is_last, peak_out)
+        finish = self.fx.finish(c, out_dur, self.frame, is_first, is_last, peak_out,
+                                [c.out_time(h) for h in c.hits])
         if leak_idx is not None:
             g.append(f"[{leak_idx}:v]format=rgba,scale={self.frame.w}:{self.frame.h},"
                      f"fade=t=in:st=0:d=0.12:alpha=1,fade=t=out:st=0.25:d=0.5:alpha=1[lk]")
@@ -406,10 +407,15 @@ class FFmpegRenderer:
             mi = idx
             idx += 1
             fo = min(tl.music.fade_out, total / 3)
+            # A reaction punchline cuts the music dead, like a record scratch, so the clip's own sound lands.
+            stop = next((bounds[i] for i, c in enumerate(clips) if c.reaction and i < len(bounds)), None)
+            if stop is not None and stop > 0.5:
+                fade = f"afade=t=out:st={f(max(0.0, stop - 0.08))}:d=0.08"
+            else:
+                fade = f"afade=t=out:st={f(max(0.0, total - fo))}:d={f(fo)}"
             g.append(f"[{mi}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,"
                      f"atrim=0:{f(total)},asetpts=PTS-STARTPTS,volume={f(tl.music.volume)},"
-                     f"afade=t=in:st=0:d={f(min(tl.music.fade_in, total / 3))},"
-                     f"afade=t=out:st={f(max(0.0, total - fo))}:d={f(fo)}[mus]")
+                     f"afade=t=in:st=0:d={f(min(tl.music.fade_in, total / 3))},{fade}[mus]")
             music_label = "mus"
             if s.ducking and game_audible and s.duck_amount > 0:
                 g.append("[0:a]asplit=2[g_main][g_sc]")

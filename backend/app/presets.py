@@ -13,8 +13,8 @@ PRESETS: dict[str, dict[str, Any]] = {
         "settings": {
             "aspect": "16:9", "target_duration": 30, "look": "beast", "beats_per_clip": 2,
             "effects": {"vignette": True, "glow": True, "speed_ramps": True, "punch_in": True, "shake": True,
-                        "flash": True, "chromatic": True},
-            "game_audio": "reduce",
+                        "flash": True, "chromatic": True, "impact": True},
+            "game_audio": "reduce", "kill_callouts": True,
         },
         "transitions": ["flash", "zoom", "cut", "glitch", "flash", "whip"],
         "hook_first": True,
@@ -57,8 +57,8 @@ PRESETS: dict[str, dict[str, Any]] = {
         "settings": {
             "aspect": "4:5", "target_duration": 30, "look": "neon", "beats_per_clip": 2,
             "effects": {"glow": True, "light_leaks": True, "chromatic": True, "vignette": True, "flash": True,
-                        "punch_in": True},
-            "game_audio": "reduce",
+                        "punch_in": True, "impact": True},
+            "game_audio": "reduce", "kill_callouts": True,
         },
         "transitions": ["glitch", "flash", "zoom", "cut"],
         "hook_first": True,
@@ -69,8 +69,8 @@ PRESETS: dict[str, dict[str, Any]] = {
         "settings": {
             "aspect": "9:16", "target_duration": 30, "look": "beast", "beats_per_clip": 2,
             "reframe": "smart_crop",
-            "effects": {"punch_in": True, "flash": True, "speed_ramps": True, "shake": True},
-            "game_audio": "reduce",
+            "effects": {"punch_in": True, "flash": True, "speed_ramps": True, "shake": True, "impact": True},
+            "game_audio": "reduce", "kill_callouts": True,
         },
         "transitions": ["flash", "zoom", "cut", "whip"],
         "hook_first": True,
@@ -91,7 +91,8 @@ PRESETS: dict[str, dict[str, Any]] = {
         "settings": {
             "aspect": "9:16", "target_duration": 20, "look": "beast", "beats_per_clip": 2,
             "reframe": "blur_fill",
-            "effects": {"punch_in": True, "flash": True}, "game_audio": "reduce",
+            "effects": {"punch_in": True, "flash": True, "impact": True}, "game_audio": "reduce",
+            "kill_callouts": True,
         },
         "transitions": ["flash", "cut", "zoom"],
         "hook_first": True,
@@ -107,6 +108,20 @@ PRESETS: dict[str, dict[str, Any]] = {
         "transitions": ["fade", "flash", "zoom"],
         "hook_first": False,
     },
+    "streamer": {
+        "label": "Streamer TikTok",
+        "description": "Crazy vertical edit: whole HUD in a stacked layout, KILL! pop-ups, kill counter, impact "
+                       "shake on every kill, and your own reaction clip as the punchline.",
+        "settings": {
+            "aspect": "9:16", "target_duration": 20, "look": "beast", "beats_per_clip": 2,
+            "reframe": "blur_fill",
+            "effects": {"punch_in": True, "flash": True, "speed_ramps": True, "shake": True, "impact": True,
+                        "glow": True, "chromatic": True},
+            "game_audio": "keep", "kill_callouts": True,
+        },
+        "transitions": ["flash", "glitch", "zoom", "whip", "cut"],
+        "hook_first": True,
+    },
 }
 
 
@@ -117,7 +132,7 @@ def preset_settings(name: str, base: ProjectSettings | None = None, **overrides:
     data["preset"] = name if name in PRESETS else "beast"
     eff = data["effects"]
     for k in ("vignette", "glow", "motion_blur", "speed_ramps", "punch_in", "shake", "flash",
-              "light_leaks", "chromatic", "letterbox"):
+              "light_leaks", "chromatic", "letterbox", "impact"):
         eff[k] = False
     for k, v in p["settings"].items():
         if k == "effects":
@@ -128,7 +143,8 @@ def preset_settings(name: str, base: ProjectSettings | None = None, **overrides:
         b = base.model_dump()
         for k in ("music_id", "music_volume", "title", "subtitle", "outro_text", "watermark_text",
                   "watermark_media_id", "watermark_position", "watermark_opacity", "resolution", "fps",
-                  "quality", "format", "transition_sfx", "normalize_audio", "ducking", "duck_amount"):
+                  "quality", "format", "transition_sfx", "normalize_audio", "ducking", "duck_amount",
+                  "reaction_clip_id", "reaction_seconds"):
             data[k] = b[k]
     data.update({k: v for k, v in overrides.items() if v is not None})
     return ProjectSettings.model_validate(data)

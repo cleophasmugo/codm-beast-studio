@@ -12,6 +12,7 @@ from ..schemas import Clip, MusicTrack, Overlay, ProjectSettings, SpeedRamp, Tim
 from .highlights import KILL_LEAD, KILL_TAIL, Candidate
 
 MIN_CLIP = 1.0  # seconds of output; shorter cuts are unreadable
+CALLOUTS = {1: "KILL!", 2: "DOUBLE KILL!", 3: "TRIPLE KILL!", 4: "QUAD KILL!", 5: "RAMPAGE!"}
 
 
 def _id() -> str:
@@ -159,6 +160,14 @@ class TimelineBuilder:
                         if total_beats * beat_len >= target - beat_len * 0.5:
                             break
 
+            # Over budget (long kill clips): drop the weakest clips rather than chopping kills out of the rest.
+            vids = [p for p in plan if p[0] == "video"]
+            while len(vids) > 1 and sum(p[2] for p in plan) * beat_len > target + beat_len:
+                keep_last = s.finale_last and len(vids) >= 2
+                drop = min(vids[:-1] if keep_last else vids, key=lambda p: p[1].score)
+                plan.remove(drop)
+                vids.remove(drop)
+
         pool = self.hints.get("transitions", ["cut"])
         trans_cycle = itertools.cycle(pool)
         clips: list[Clip] = []
@@ -177,7 +186,7 @@ class TimelineBuilder:
                 if not meta:
                     continue
                 is_top = id(c) in top_ids
-                if target:
+                if target and not _kill_times(c):  # never cut a kill short to hit the target length
                     while n > min_beats and grid[bi + n] > target + beat_len * 0.5:
                         n -= 1
                 out = grid[bi + n] - grid[bi]
@@ -211,6 +220,7 @@ class TimelineBuilder:
                     punch_in=s.effects.punch_in and c.score >= best_score * 0.6,
                     shake=s.effects.shake and is_top, crop_x=c.crop_x, score=round(c.score, 4),
                     reasons=c.reasons,
+                    hits=[round(k, 3) for k in kills if start <= k <= start + src_len],
                 ))
             elif kind == "image":
                 motions = ["zoom_in", "pan_right", "zoom_out", "pan_left"]
@@ -221,6 +231,13 @@ class TimelineBuilder:
                                   duration=round(grid[bi + n] - grid[bi], 3), transition="fade"))
             bi += n
 
+        reaction = media.get(s.reaction_clip_id or "")
+        if reaction and reaction.duration > 0:
+            # The punchline: a hard cut to the user's own meme/facecam clip, before any outro card.
+            at = next((i for i, cl in enumerate(clips) if cl.kind == "card"), len(clips))
+            clips.insert(at, Clip(id=_id(), kind="video", media_id=reaction.id, start=0.0,
+                                  end=round(min(reaction.duration, s.reaction_seconds), 3),
+                                  transition="cut", crop_x=0.5, reaction=True, reasons=["reaction ending"]))
         tl = Timeline(clips=clips, bpm=round(bpm, 2), notes=notes)
         if s.music_id:
             m = music or {}
@@ -256,4 +273,29 @@ class TimelineBuilder:
                                        end=round(t + min(d, 2.0), 3), x=0.14, y=0.1, scale=0.7,
                                        animation="slide_left", color="#A3E635", layer=5))
                 t += d
+        if s.kill_callouts:
+            out += self.kill_overlays(tl)
+        return out
+
+    def kill_overlays(self, tl: Timeline) -> list[Overlay]:
+        """KILL! / DOUBLE KILL! pop-ups on each detected kill, and a running kill counter badge."""
+        vertical = self.s.aspect in ("9:16", "4:5")
+        call_y, badge_x, badge_y = (0.17, 0.5, 0.86) if vertical else (0.24, 0.88, 0.1)
+        times: list[tuple[float, int]] = []  # (output time, kill number within its clip)
+        t = 0.0
+        for c in tl.clips:
+            for i, h in enumerate(sorted(c.hits), 1):
+                times.append((t + c.out_time(h), i))
+            t += c.output_duration()
+        out: list[Overlay] = []
+        for n, (at, streak) in enumerate(times, 1):
+            out.append(Overlay(id=_id(), type="text", text=CALLOUTS.get(streak, f"{streak}X KILL!"),
+                               start=round(at, 3), end=round(min(at + 1.1, t), 3), x=0.5, y=call_y,
+                               scale=(1.25 if streak > 1 else 1.45) if vertical else (2.2 if streak > 1 else 1.8),
+                               color="#FACC15" if streak == 1 else "#F43F5E",
+                               outline="#000000", animation="pop", layer=20))
+            nxt = times[n][0] if n < len(times) else t
+            out.append(Overlay(id=_id(), type="counter", text=f"KILLS {n}", start=round(at, 3),
+                               end=round(max(at + 0.5, nxt), 3), x=badge_x, y=badge_y, scale=0.9,
+                               color="#A3E635", animation="pop", layer=19))
         return out

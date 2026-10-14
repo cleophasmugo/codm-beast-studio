@@ -268,3 +268,29 @@ def test_kill_clips_cover_fight_and_payoff():
     wins = HighlightAnalyzer._kill_windows(evs, 74.0)
     assert [(s, e) for s, e, _ in wins] == [(round(8.6 - KILL_LEAD, 3), round(8.6 + KILL_TAIL, 3)),
                                             (round(43.6 - KILL_LEAD, 3), round(48.8 + KILL_TAIL, 3))]
+
+
+def test_kill_callouts_land_on_each_kill_in_output_time():
+    from app.services.timeline import TimelineBuilder
+    s = preset_settings("streamer")
+    assert s.kill_callouts and s.effects.impact and s.aspect == "9:16"
+    ramp = SpeedRamp(at=1.0, duration=1.0, speed=0.5)
+    clips = [Clip(id="a", media_id="m", start=10.0, end=13.0, hits=[12.5], ramp=ramp),  # out 4.0 s long
+             Clip(id="b", media_id="m", start=40.0, end=46.0, hits=[42.0, 44.0])]
+    assert clips[0].out_time(10.5) == 0.5 and clips[0].out_time(11.5) == 2.0 and clips[0].out_time(12.5) == 3.5
+    ov = TimelineBuilder(s).kill_overlays(Timeline(clips=clips))
+    calls = [(o.text, o.start) for o in ov if o.type == "text"]
+    assert calls == [("KILL!", 3.5), ("KILL!", 6.0), ("DOUBLE KILL!", 8.0)]
+    counters = [(o.text, o.start, o.end) for o in ov if o.type == "counter"]
+    assert counters == [("KILLS 1", 3.5, 6.0), ("KILLS 2", 6.0, 8.0), ("KILLS 3", 8.0, 10.0)]
+    assert all(o.y < 0.3 for o in ov if o.type == "text")  # vertical: callouts sit in the top band
+
+
+def test_impact_and_reaction_effects():
+    s = preset_settings("streamer")
+    fx = EffectsComposer(s)
+    chain = ",".join(fx.finish(Clip(id="a", media_id="m", start=0, end=3, hits=[1.0]), 3.0,
+                               Frame(1080, 1920, 30), False, False, None, [1.5]))
+    assert "exp(-9*abs(t-1.5))" in chain and "eq=brightness='0.4*min(1" in chain
+    assert fx.finish(Clip(id="r", media_id="m", start=0, end=4, reaction=True), 4.0, Frame(1080, 1920, 30),
+                     False, False) == []

@@ -1,4 +1,4 @@
-import { Clapperboard, Film, Music2, Type, Volume2, Wand2 } from "lucide-react";
+import { Clapperboard, Film, Flame, Music2, Type, Volume2, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ASPECTS, type Aspect, type GameAudio, type Job, type Media, type PresetName } from "../api";
 import { AudioRow } from "../components/AudioRow";
@@ -9,7 +9,7 @@ import { MediaPicker } from "../components/MediaPicker";
 import { PresetPicker } from "../components/PresetPicker";
 import { useToast } from "../components/Toast";
 import { UploadZone } from "../components/UploadZone";
-import { Button, Card, CardTitle, ErrorBanner, Note, PageHeader, Segmented, Spinner, TextField, cx } from "../components/ui";
+import { Button, Card, CardTitle, ErrorBanner, Note, PageHeader, Segmented, SelectField, Spinner, TextField, Toggle, cx } from "../components/ui";
 import { titleCase } from "../lib/format";
 import { useAsync } from "../lib/hooks";
 
@@ -28,6 +28,8 @@ export function AutoEdit() {
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [outro, setOutro] = useState("");
+  const [callouts, setCallouts] = useState(true);
+  const [reactionId, setReactionId] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [done, setDone] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,6 +42,7 @@ export function AutoEdit() {
 
   const footage = useMemo(() => (media.data ?? []).filter((m) => m.kind === "video" || m.kind === "image"), [media.data]);
   const audio = useMemo(() => (media.data ?? []).filter((m) => m.kind === "audio"), [media.data]);
+  const videos = useMemo(() => (media.data ?? []).filter((m) => m.kind === "video"), [media.data]);
 
   const choosePreset = (id: PresetName) => {
     setPreset(id);
@@ -79,6 +82,8 @@ export function AutoEdit() {
         title: title.trim(),
         subtitle: subtitle.trim(),
         outro_text: outro.trim(),
+        kill_callouts: callouts,
+        reaction_clip_id: reactionId,
       };
       const job = await api.autoEdit(project.id, settings, true);
       setJobId(job.id);
@@ -175,6 +180,30 @@ export function AutoEdit() {
               ]}
             />
             <p className="mt-2 text-xs text-ink-400">Reduce lowers gunfire under the music; ducking and volume are in Music and Audio.</p>
+          </Card>
+
+          <Card>
+            <CardTitle icon={<Flame className="size-4" />}>Crazy add-ins</CardTitle>
+            <div className="space-y-3">
+              <Toggle
+                label="Kill pop-ups"
+                description="KILL! / DOUBLE KILL! text and a kill counter on every detected kill"
+                checked={callouts}
+                onChange={setCallouts}
+              />
+              <SelectField label="Reaction ending" value={reactionId ?? ""} onChange={(e) => setReactionId(e.target.value || null)}>
+                <option value="">None</option>
+                {videos.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </SelectField>
+              <p className="text-xs text-ink-400">
+                Your own meme or facecam reaction clip, played at the end as the punchline (first 5 seconds; the music cuts out). Upload
+                it with your footage. Only use clips you have the rights to.
+              </p>
+            </div>
           </Card>
 
           <Card>

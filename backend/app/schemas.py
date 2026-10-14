@@ -15,7 +15,8 @@ Transition = Literal["cut", "flash", "fade", "zoom", "glitch", "whip"]
 Reframe = Literal["smart_crop", "blur_fill", "center_crop"]
 GameAudio = Literal["keep", "reduce", "mute"]
 TextAnimation = Literal["none", "fade", "pop", "slide_left", "slide_up", "bounce"]
-PresetName = Literal["beast", "cinematic", "esports", "smooth", "neon", "tiktok", "youtube", "shorts", "showcase"]
+PresetName = Literal["beast", "cinematic", "esports", "smooth", "neon", "tiktok", "youtube", "shorts", "showcase",
+                     "streamer"]
 Look = Literal["none", "beast", "cinematic", "esports", "clean", "neon", "warm", "cold", "vintage", "bw"]
 
 
@@ -36,6 +37,7 @@ class EffectToggles(BaseModel):
     light_leaks: bool = False
     chromatic: bool = False
     letterbox: bool = False
+    impact: bool = False  # white pop + screen shake on every detected kill
 
 
 class ColorAdjust(BaseModel):
@@ -120,6 +122,8 @@ class Clip(BaseModel):
     score: float = 0.0
     reasons: list[str] = Field(default_factory=list)
     muted: bool = False
+    hits: list[float] = Field(default_factory=list)  # source times of detected kills inside this clip
+    reaction: bool = False  # the reaction/meme punchline clip: played as-is, no effects
 
     def output_duration(self) -> float:
         if self.kind != "video":
@@ -129,6 +133,16 @@ class Clip(BaseModel):
             d = min(self.ramp.duration, max(0.0, src - self.ramp.at))
             return src - d + d / self.ramp.speed
         return src
+
+    def out_time(self, src_t: float) -> float:
+        """Where a source time lands in this clip's output, accounting for the slow-motion ramp."""
+        s = min(max(src_t - self.start, 0.0), max(0.0, self.end - self.start))
+        if not self.ramp or s <= self.ramp.at:
+            return s
+        d = min(self.ramp.duration, max(0.0, self.end - self.start - self.ramp.at))
+        if s <= self.ramp.at + d:
+            return self.ramp.at + (s - self.ramp.at) / self.ramp.speed
+        return self.ramp.at + d / self.ramp.speed + (s - self.ramp.at - d)
 
 
 class MusicTrack(BaseModel):
@@ -189,6 +203,9 @@ class ProjectSettings(BaseModel):
     watermark_position: Literal["top_left", "top_right", "bottom_left", "bottom_right"] = "bottom_right"
     watermark_opacity: float = Field(0.7, ge=0.05, le=1)
     clip_counter: bool = False
+    kill_callouts: bool = False  # big KILL! / DOUBLE KILL! pop-ups and a running kill counter
+    reaction_clip_id: str | None = None  # your own meme/facecam clip, played at the end as the punchline
+    reaction_seconds: float = Field(5.0, ge=1, le=15)
 
 
 # --------------------------------------------------------------------------- API models

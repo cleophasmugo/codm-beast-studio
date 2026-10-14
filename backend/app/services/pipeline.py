@@ -167,7 +167,8 @@ def save_timeline(db: Session, p: Project, tl: Timeline, note: str) -> None:
 def build_auto_timeline(db: Session, p: Project, ctx: JobContext | None = None) -> Timeline:
     settings = ProjectSettings.model_validate(p.settings or {})
     media = _project_media(db, p)
-    videos = [m for m in media if m.kind == "video"]
+    # The reaction clip is a punchline, not gameplay: never mine it for highlights.
+    videos = [m for m in media if m.kind == "video" and m.id != settings.reaction_clip_id]
     images = [m for m in media if m.kind == "image"]
     if not videos and not images:
         raise PipelineError("Add at least one gameplay video or screenshot to this project first.")
@@ -198,6 +199,10 @@ def build_auto_timeline(db: Session, p: Project, ctx: JobContext | None = None) 
     selector = ClipSelector(variety=settings.weights.variety)
     selected = selector.select(all_cands, settings.target_duration, est, [v.id for v in videos])
     metas = {v.id: MediaMeta(v.id, "video", v.info["duration"]) for v in videos}
+    if settings.reaction_clip_id:
+        rm = db.get(Media, settings.reaction_clip_id)
+        if rm and rm.owner_id == p.owner_id and rm.kind == "video":
+            metas[rm.id] = MediaMeta(rm.id, "video", float(rm.info.get("duration") or 0))
     tl = TimelineBuilder(settings).build(selected, metas, [m.id for m in images], music)
     highlights["selected"] = [c.as_dict() for c in selected]
     highlights["evidence_note"] = (

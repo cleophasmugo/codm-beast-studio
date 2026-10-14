@@ -77,11 +77,26 @@ class EffectsComposer:
 
     # ------------------------------------------------------------------ per-clip finishing
     def finish(self, clip: Clip, out_dur: float, fr: Frame, is_first: bool, is_last: bool,
-               peak_out: float | None = None) -> list[str]:
+               peak_out: float | None = None, hits_out: list[float] | None = None) -> list[str]:
         """Effects and transition-in for one clip, already at fr.w x fr.h."""
         e = self.s.effects
         W, H = fr.w, fr.h
         chain: list[str] = []
+        if clip.reaction:  # the punchline plays exactly as the user recorded it
+            if is_last:
+                d = min(0.5, out_dur / 4)
+                chain.append(f"fade=t=out:st={f(max(0.0, out_dur - d))}:d={f(d)}")
+            return chain
+        hits = [h for h in (hits_out or []) if 0 <= h <= out_dur] if e.impact else []
+        if hits:
+            # Kill impact: a hard white pop and a violent shake that dies out fast, on every kill.
+            a = max(6, int(min(W, H) * 0.02)) * 2
+            env = "+".join(f"exp(-9*abs(t-{f(h)}))" for h in hits)
+            chain.append(f"crop={W - 2 * a}:{H - 2 * a}:x='{a}+{a}*sin(t*61)*min(1,{env})'"
+                         f":y='{a}+{a}*cos(t*53)*min(1,{env})'")
+            chain.append(f"scale={W}:{H}")
+            pop = "+".join(f"max(0,1-abs(t-{f(h)})/0.1)" for h in hits)
+            chain.append(f"eq=brightness='0.4*min(1,{pop})':contrast='1+0.25*min(1,{pop})':eval=frame")
         zoom = 0.0
         # Effects stay short and light: big zooms, colour fringing and white-outs read as glitches, not style.
         if clip.transition == "zoom":
@@ -91,7 +106,7 @@ class EffectsComposer:
         if zoom:
             chain.append(f"scale=w='trunc(iw*(1+{f(zoom)}*pow(max(0,1-t/0.35),2))/2)*2':h=-2:eval=frame")
             chain.append(f"crop={W}:{H}")
-        if clip.shake and e.shake:
+        if clip.shake and e.shake and not hits:
             a = max(4, int(min(W, H) * 0.012)) * 2
             p = peak_out if peak_out is not None else 0.0
             chain.append(f"crop={W - 2 * a}:{H - 2 * a}:x='{a}+{a}*sin(t*47)*exp(-4*abs(t-{f(p)}))'"
