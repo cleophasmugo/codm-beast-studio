@@ -106,6 +106,13 @@ class EffectsComposer:
         if zoom:
             chain.append(f"scale=w='trunc(iw*(1+{f(zoom)}*pow(max(0,1-t/0.35),2))/2)*2':h=-2:eval=frame")
             chain.append(f"crop={W}:{H}")
+        if clip.transition == "spin":
+            # Twist into place: rotate from ~20 deg to 0 while zoomed in just enough to hide the turned corners.
+            p = "pow(max(0,1-t/0.32),2)"
+            k = 0.35 * (1 + max(W, H) / min(W, H)) * 0.6
+            chain.append(f"rotate=a='0.35*{p}':c=black")
+            chain.append(f"scale=w='trunc(iw*(1+{f(k)}*{p})/2)*2':h=-2:eval=frame")
+            chain.append(f"crop={W}:{H}")
         if clip.shake and e.shake and not hits:
             a = max(4, int(min(W, H) * 0.012)) * 2
             p = peak_out if peak_out is not None else 0.0

@@ -12,6 +12,7 @@ from ..schemas import Clip, MusicTrack, Overlay, ProjectSettings, SpeedRamp, Tim
 from .highlights import KILL_LEAD, KILL_TAIL, Candidate
 
 MIN_CLIP = 1.0  # seconds of output; shorter cuts are unreadable
+VELOCITY_SLOW, VELOCITY_FAST = 0.4, 1.6  # velocity edit speeds: slow-mo on the action, fast around it
 CALLOUTS = {1: "KILL!", 2: "DOUBLE KILL!", 3: "TRIPLE KILL!", 4: "QUAD KILL!", 5: "RAMPAGE!"}
 
 
@@ -137,8 +138,10 @@ class TimelineBuilder:
                 c = item  # type: ignore[assignment]
                 n = max(min_beats, s.beats_per_clip * (2 if id(c) in top_ids and s.effects.speed_ramps else 1))
                 kills = _kill_times(c)
-                if kills:  # enough beats to show the whole fight and every kill (slow-mo eats ~20% of source)
-                    need = min(kills[-1] - kills[0] + KILL_LEAD + KILL_TAIL, c.end - c.start) / 0.8
+                if kills:  # enough beats to show the whole fight and every kill
+                    need_src = min(kills[-1] - kills[0] + KILL_LEAD + KILL_TAIL, c.end - c.start)
+                    # velocity races through source at 1.6x (plus ~1 s of slow-mo); a plain ramp eats ~20%
+                    need = need_src / VELOCITY_FAST + 1.0 if s.effects.velocity else need_src / 0.8
                     n = max(n, math.ceil(need / beat_len))
             elif kind == "image":
                 n = max(min_beats, round(s.image_duration / beat_len))
@@ -192,7 +195,14 @@ class TimelineBuilder:
                 out = grid[bi + n] - grid[bi]
                 ramp = None
                 src_len = out
-                if is_top and s.effects.speed_ramps and out >= 1.6:
+                if s.effects.velocity and out >= 1.2:
+                    # Velocity edit: race in fast, drop into slow-mo on the action, race out again.
+                    slow_out = min(out * 0.45, 2.0)
+                    speed, outer = VELOCITY_SLOW, VELOCITY_FAST
+                    rd = slow_out * speed
+                    src_len = (out - slow_out) * outer + rd
+                    ramp = SpeedRamp(at=0.0, duration=round(rd, 3), speed=speed, outer=outer)
+                elif is_top and s.effects.speed_ramps and out >= 1.6:
                     slow_out = min(out * 0.4, 2.0)
                     speed = 0.5
                     rd = slow_out * speed
@@ -206,6 +216,10 @@ class TimelineBuilder:
                 if kills:
                     # End just after the last kill notice, so the clip lands on the payoff, never before it.
                     start = kills[-1] + KILL_TAIL - src_len
+                    taken = [cl for cl in clips if cl.kind == "video" and cl.media_id == c.media_id]
+                    for cl in taken:  # never replay footage another clip already shows
+                        if cl.start < kills[-1] and cl.end > start and cl.end <= kills[0]:
+                            start = cl.end
                 else:
                     # Centre the window on the peak, but stay inside the candidate's context where possible.
                     start = c.peak - src_len * 0.55

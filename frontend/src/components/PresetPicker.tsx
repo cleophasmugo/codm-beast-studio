@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check, Crown, Film, Flame, Gamepad2, Images, Smartphone, Sparkles, Trophy, Waves, Youtube, Zap } from "lucide-react";
+import { Check, Crown, Film, Flame, Gamepad2, Gauge, Images, Smartphone, Sparkles, Trophy, Waves, Youtube, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Preset, PresetName } from "../api";
 import { cx } from "./ui";
@@ -15,6 +15,7 @@ const LOOK: Record<PresetName, { icon: ReactNode; grad: string }> = {
   shorts: { icon: <Gamepad2 className="size-5" />, grad: "from-lime-400/25 via-emerald-400/10 to-transparent" },
   showcase: { icon: <Images className="size-5" />, grad: "from-violet-400/25 via-indigo-400/10 to-transparent" },
   streamer: { icon: <Flame className="size-5" />, grad: "from-yellow-400/30 via-rose-500/15 to-transparent" },
+  velocity: { icon: <Gauge className="size-5" />, grad: "from-orange-400/30 via-teal-400/15 to-transparent" },
 };
 
 export function presetIcon(id: PresetName): ReactNode {

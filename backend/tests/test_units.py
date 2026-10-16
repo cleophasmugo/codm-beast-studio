@@ -294,3 +294,21 @@ def test_impact_and_reaction_effects():
     assert "exp(-9*abs(t-1.5))" in chain and "eq=brightness='0.4*min(1" in chain
     assert fx.finish(Clip(id="r", media_id="m", start=0, end=4, reaction=True), 4.0, Frame(1080, 1920, 30),
                      False, False) == []
+
+
+def test_velocity_ramp_timing_and_preset():
+    s = preset_settings("velocity")
+    assert s.reframe == "rotate" and s.effects.velocity and s.effects.iris_intro and s.aspect == "9:16"
+    r = SpeedRamp(at=1.6, duration=0.8, speed=0.4, outer=1.6)
+    c = Clip(id="v", media_id="m", start=10.0, end=14.0, ramp=r)
+    # 1.6 s fast -> 1.0 s, 0.8 s slow -> 2.0 s, 1.6 s fast -> 1.0 s
+    assert abs(c.output_duration() - 4.0) < 1e-9
+    assert abs(c.out_time(11.6) - 1.0) < 1e-9 and abs(c.out_time(12.4) - 3.0) < 1e-9
+    assert abs(c.out_time(14.0) - 4.0) < 1e-9
+
+
+def test_spin_transition_filters():
+    fx = EffectsComposer(preset_settings("velocity"))
+    chain = ",".join(fx.finish(Clip(id="a", media_id="m", start=0, end=3, transition="spin"), 3.0,
+                               Frame(1080, 1920, 30), False, False))
+    assert "rotate=a='0.35*pow(max(0,1-t/0.32),2)'" in chain and "crop=1080:1920" in chain

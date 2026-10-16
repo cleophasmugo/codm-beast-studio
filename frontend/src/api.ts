@@ -9,18 +9,18 @@ export type Aspect = "16:9" | "9:16" | "1:1" | "4:5";
 export type Resolution = "source" | "720p" | "1080p" | "1440p" | "2160p";
 export type OutputFormat = "mp4_h264" | "mp4_h265" | "webm_vp9";
 export type Quality = "draft" | "standard" | "high";
-export type Transition = "cut" | "flash" | "fade" | "zoom" | "glitch" | "whip";
-export type Reframe = "smart_crop" | "blur_fill" | "center_crop";
+export type Transition = "cut" | "flash" | "fade" | "zoom" | "glitch" | "whip" | "spin";
+export type Reframe = "smart_crop" | "blur_fill" | "center_crop" | "rotate";
 export type GameAudio = "keep" | "reduce" | "mute";
 export type TextAnimation = "none" | "fade" | "pop" | "slide_left" | "slide_up" | "bounce";
 export type PresetName =
-  | "beast" | "cinematic" | "esports" | "smooth" | "neon" | "tiktok" | "youtube" | "shorts" | "showcase" | "streamer";
+  | "beast" | "cinematic" | "esports" | "smooth" | "neon" | "tiktok" | "youtube" | "shorts" | "showcase" | "streamer" | "velocity";
 export type Look = "none" | "beast" | "cinematic" | "esports" | "clean" | "neon" | "warm" | "cold" | "vintage" | "bw";
 export type Motion = "none" | "zoom_in" | "zoom_out" | "pan_left" | "pan_right";
 export type MediaKind = "video" | "audio" | "image" | "sticker";
 export type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
 
-export const TRANSITIONS: Transition[] = ["cut", "flash", "fade", "zoom", "glitch", "whip"];
+export const TRANSITIONS: Transition[] = ["cut", "flash", "fade", "zoom", "glitch", "whip", "spin"];
 export const MOTIONS: Motion[] = ["none", "zoom_in", "zoom_out", "pan_left", "pan_right"];
 export const TEXT_ANIMATIONS: TextAnimation[] = ["none", "fade", "pop", "slide_left", "slide_up", "bounce"];
 export const LOOKS: Look[] = ["none", "beast", "cinematic", "esports", "clean", "neon", "warm", "cold", "vintage", "bw"];
@@ -45,6 +45,8 @@ export interface EffectToggles {
   chromatic: boolean;
   letterbox: boolean;
   impact: boolean;
+  velocity: boolean;
+  iris_intro: boolean;
 }
 
 export interface ColorAdjust {
@@ -136,6 +138,7 @@ export interface SpeedRamp {
   at: number;
   duration: number;
   speed: number;
+  outer?: number;
 }
 
 export interface Clip {

@@ -11,12 +11,12 @@ Aspect = Literal["16:9", "9:16", "1:1", "4:5"]
 Resolution = Literal["source", "720p", "1080p", "1440p", "2160p"]
 OutputFormat = Literal["mp4_h264", "mp4_h265", "webm_vp9"]
 Quality = Literal["draft", "standard", "high"]
-Transition = Literal["cut", "flash", "fade", "zoom", "glitch", "whip"]
-Reframe = Literal["smart_crop", "blur_fill", "center_crop"]
+Transition = Literal["cut", "flash", "fade", "zoom", "glitch", "whip", "spin"]
+Reframe = Literal["smart_crop", "blur_fill", "center_crop", "rotate"]  # rotate: landscape turned 90 deg to fill 9:16
 GameAudio = Literal["keep", "reduce", "mute"]
 TextAnimation = Literal["none", "fade", "pop", "slide_left", "slide_up", "bounce"]
 PresetName = Literal["beast", "cinematic", "esports", "smooth", "neon", "tiktok", "youtube", "shorts", "showcase",
-                     "streamer"]
+                     "streamer", "velocity"]
 Look = Literal["none", "beast", "cinematic", "esports", "clean", "neon", "warm", "cold", "vintage", "bw"]
 
 
@@ -38,6 +38,8 @@ class EffectToggles(BaseModel):
     chromatic: bool = False
     letterbox: bool = False
     impact: bool = False  # white pop + screen shake on every detected kill
+    velocity: bool = False  # every clip races fast, drops to slow-mo on the action, races again (motion-blurred)
+    iris_intro: bool = False  # the first clip opens as a growing scope circle out of black
 
 
 class ColorAdjust(BaseModel):
@@ -102,6 +104,7 @@ class SpeedRamp(BaseModel):
     at: float = Field(ge=0)  # offset into the clip's source range, seconds
     duration: float = Field(gt=0, le=5)
     speed: float = Field(0.5, ge=0.25, le=1.0)
+    outer: float = Field(1.0, ge=1.0, le=2.5)  # speed before and after the slow part (velocity edits run >1)
 
 
 class Clip(BaseModel):
@@ -131,18 +134,21 @@ class Clip(BaseModel):
         src = max(0.0, self.end - self.start)
         if self.ramp:
             d = min(self.ramp.duration, max(0.0, src - self.ramp.at))
-            return src - d + d / self.ramp.speed
+            return (src - d) / self.ramp.outer + d / self.ramp.speed
         return src
 
     def out_time(self, src_t: float) -> float:
         """Where a source time lands in this clip's output, accounting for the slow-motion ramp."""
         s = min(max(src_t - self.start, 0.0), max(0.0, self.end - self.start))
-        if not self.ramp or s <= self.ramp.at:
+        r = self.ramp
+        if not r:
             return s
-        d = min(self.ramp.duration, max(0.0, self.end - self.start - self.ramp.at))
-        if s <= self.ramp.at + d:
-            return self.ramp.at + (s - self.ramp.at) / self.ramp.speed
-        return self.ramp.at + d / self.ramp.speed + (s - self.ramp.at - d)
+        if s <= r.at:
+            return s / r.outer
+        d = min(r.duration, max(0.0, self.end - self.start - r.at))
+        if s <= r.at + d:
+            return r.at / r.outer + (s - r.at) / r.speed
+        return r.at / r.outer + d / r.speed + (s - r.at - d) / r.outer
 
 
 class MusicTrack(BaseModel):

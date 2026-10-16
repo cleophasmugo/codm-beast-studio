@@ -27,6 +27,7 @@ from .image_studio import apply_edit
 from .sound_library import build_sfx_bed
 
 log = logging.getLogger(__name__)
+IRIS_SECONDS = 1.0  # length of the scope-circle intro
 LOW_RES_HEIGHT = 720  # sources below this get deblocking before upscaling and extra sharpening after
 
 StageProgress = Callable[[float, str], None]
@@ -145,6 +146,11 @@ class FFmpegRenderer:
         ta = W / H
         sa = src_w / max(src_h, 1)
         mode = self.s.reframe
+        if mode == "rotate" and sa > 1 > ta:
+            # Velocity-edit look: turn landscape gameplay sideways so it fills the vertical frame, HUD and all.
+            g.append(f"[{label_in}]transpose=2,scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,"
+                     f"crop={W}:{H}[{label_out}]")
+            return
         if abs(sa - ta) / ta < 0.02:
             g.append(f"[{label_in}]scale={W}:{H}:flags=lanczos[{label_out}]")
             return
@@ -194,7 +200,8 @@ class FFmpegRenderer:
         if c.ramp:
             a = min(max(c.ramp.at, 0.0), src_len)
             b = min(a + c.ramp.duration, src_len)
-            for s0, s1, sp in ((0.0, a, 1.0), (a, b, c.ramp.speed), (b, src_len, 1.0)):
+            o = c.ramp.outer
+            for s0, s1, sp in ((0.0, a, o), (a, b, c.ramp.speed), (b, src_len, o)):
                 if s1 - s0 >= 1.0 / fps:
                     parts.append((s0, s1, sp))
         if len(parts) > 1:
@@ -203,6 +210,8 @@ class FFmpegRenderer:
             for i, (s0, s1, sp) in enumerate(parts):
                 chain = f"[vp{i}]trim=start={f(s0)}:end={f(s1)},setpts=(PTS-STARTPTS)/{f(sp)}"
                 chain += f",framerate=fps={fps}" if sp < 1 else f",fps={fps}"
+                if sp > 1 and self.s.effects.velocity:
+                    chain += ",tmix=frames=3:weights='1 2 1'"  # velocity blur trails on the fast parts
                 g.append(chain + f"[vq{i}]")
             g.append("".join(f"[vq{i}]" for i in range(k)) + f"concat=n={k}:v=1:a=0[vr]")
             if has_audio:
@@ -211,6 +220,8 @@ class FFmpegRenderer:
                     tempo = ""
                     if sp < 1:
                         tempo = ",atempo=0.5,atempo=" + f(sp / 0.5) if sp < 0.5 else f",atempo={f(sp)}"
+                    elif sp > 1:
+                        tempo = f",atempo={f(sp)}"
                     g.append(f"[ap{i}]atrim=start={f(s0)}:end={f(s1)},asetpts=PTS-STARTPTS{tempo}[aq{i}]")
                 g.append("".join(f"[aq{i}]" for i in range(k)) + f"concat=n={k}:v=0:a=1[ar]")
         else:
@@ -246,7 +257,17 @@ class FFmpegRenderer:
                      f"fade=t=in:st=0:d=0.12:alpha=1,fade=t=out:st=0.25:d=0.5:alpha=1[lk]")
             g.append(f"[{cur}][lk]overlay=0:0:eof_action=pass[vlk]")
             cur = "vlk"
-        g.append(f"[{cur}]" + ",".join([*finish, "format=yuv420p", "setsar=1"]) + "[vout]")
+        iris = is_first and self.s.effects.iris_intro and not c.reaction and out_dur > IRIS_SECONDS + 0.2
+        g.append(f"[{cur}]" + ",".join([*finish, "format=yuv420p", "setsar=1"]) + ("[vfin]" if iris else "[vout]"))
+        if iris:
+            # Scope intro: the picture opens as a circle growing out of black. geq only runs on the first second.
+            T = IRIS_SECONDS
+            inside = f"lte(hypot((X/W-0.5)*W/H,Y/H-0.5),0.62*pow(min(1,T/{f(T)}),1.6))"
+            g.append("[vfin]split=2[ir0][ir1]")
+            g.append(f"[ir0]trim=end={f(T)},setpts=PTS-STARTPTS,"
+                     f"geq=lum='if({inside},lum(X,Y),16)':cb='if({inside},cb(X,Y),128)':cr='if({inside},cr(X,Y),128)'[ira]")
+            g.append(f"[ir1]trim=start={f(T)},setpts=PTS-STARTPTS[irb]")
+            g.append("[ira][irb]concat=n=2:v=1:a=0,setsar=1[vout]")
         a_in = "ar" if has_audio else f"{null_idx}:a"
         fade_out = max(0.0, out_dur - 0.03)
         a_chain = (f"[{a_in}]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,"

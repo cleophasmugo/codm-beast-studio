@@ -25,6 +25,8 @@ const EFFECTS: { key: keyof EffectToggles; label: string; description: string }[
   { key: "chromatic", label: "RGB split", description: "Chromatic aberration glitch hits" },
   { key: "letterbox", label: "Letterbox", description: "Cinematic black bars" },
   { key: "impact", label: "Kill impact", description: "White pop and hard shake on every detected kill" },
+  { key: "velocity", label: "Velocity ramps", description: "Fast-slow-fast speed on every clip, with blur trails" },
+  { key: "iris_intro", label: "Scope intro", description: "Open the montage as a circle growing out of black" },
 ];
 
 type ColorKey = "brightness" | "contrast" | "saturation" | "gamma" | "sharpen_amount";

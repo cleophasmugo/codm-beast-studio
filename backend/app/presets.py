@@ -122,6 +122,20 @@ PRESETS: dict[str, dict[str, Any]] = {
         "transitions": ["flash", "glitch", "zoom", "whip", "cut"],
         "hook_first": True,
     },
+    "velocity": {
+        "label": "Velocity Edit",
+        "description": "TikTok velocity style: gameplay turned sideways to fill the screen, scope-circle intro, "
+                       "fast-slow-fast speed ramps with blur trails, spin and whip transitions.",
+        "settings": {
+            "aspect": "9:16", "target_duration": 30, "look": "beast", "beats_per_clip": 4,
+            "reframe": "rotate",
+            "effects": {"velocity": True, "iris_intro": True, "impact": True, "glow": True, "punch_in": True,
+                        "speed_ramps": True},
+            "game_audio": "reduce",
+        },
+        "transitions": ["spin", "whip", "zoom", "spin", "cut"],
+        "hook_first": False,
+    },
 }
 
 
@@ -132,7 +146,7 @@ def preset_settings(name: str, base: ProjectSettings | None = None, **overrides:
     data["preset"] = name if name in PRESETS else "beast"
     eff = data["effects"]
     for k in ("vignette", "glow", "motion_blur", "speed_ramps", "punch_in", "shake", "flash",
-              "light_leaks", "chromatic", "letterbox", "impact"):
+              "light_leaks", "chromatic", "letterbox", "impact", "velocity", "iris_intro"):
         eff[k] = False
     for k, v in p["settings"].items():
         if k == "effects":
