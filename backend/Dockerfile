@@ -21,8 +21,10 @@ RUN pip install -r requirements.txt
 COPY backend/ ./
 COPY scripts/ /app/scripts/
 COPY --from=web /web/dist /app/frontend/dist
-USER beast
+# The entrypoint drops from root to the beast user after fixing /data ownership.
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=5 \
-  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=4)"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+  CMD ["sh", "-c", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/api/health', timeout=4)\""]
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+# PORT is set by hosts such as Render; defaults to 8000 for docker compose.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
