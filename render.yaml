@@ -1,0 +1,30 @@
+# Render Blueprint: one Docker web service that serves the UI + API and runs render jobs in-process
+# (no Redis/Celery), with SQLite and all uploads/exports on a persistent disk at /data.
+# Render disks attach to a single service, so a separate worker could not see the uploaded files.
+services:
+  - type: web
+    name: codm-beast-studio
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    # Disks need a paid instance. "standard" (1 CPU / 2 GB) is the smallest that reliably fits
+    # OpenCV analysis + FFmpeg exports; "starter" (512 MB) tends to run out of memory on renders.
+    plan: standard
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: beast-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: BEAST_DATA_DIR
+        value: /data
+      # Shown once in the Render dashboard; enter it in the app's Settings page.
+      - key: BEAST_API_TOKEN
+        generateValue: true
+      - key: BEAST_MAX_UPLOAD_MB
+        value: "1024"
+      - key: BEAST_RETENTION_DAYS
+        value: "14"
+      - key: BEAST_X264_PRESET
+        value: veryfast

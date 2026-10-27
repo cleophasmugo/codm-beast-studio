@@ -39,6 +39,20 @@ This starts four containers: `web` (API + UI), `worker` (Celery renders), `db` (
 
 To change settings, copy `.env.example` to `.env` and edit it before starting.
 
+## Hosting on Render
+
+`render.yaml` is a Render Blueprint: one Docker web service (UI + API + in-process render jobs)
+with SQLite, uploads and exports on a 10 GB persistent disk at `/data`.
+
+1. In the Render dashboard choose **New > Blueprint**, connect GitHub and pick this repo.
+2. Apply the Blueprint. The first build takes about 5-10 minutes.
+3. Open the service's **Environment** tab, copy the generated `BEAST_API_TOKEN`, then open the
+   `.onrender.com` URL and paste the token in **Settings**.
+
+Notes: the disk needs a paid instance (the Blueprint uses `standard`, 1 CPU / 2 GB). The free
+instance has no disk and sleeps when idle, which wipes uploads and stops running jobs. Each
+deploy restarts the service, so a render that is running during a deploy is lost.
+
 ## Local development (no Docker)
 
 Requirements: Python 3.12+, Node 22+, FFmpeg 6+ on your PATH.
